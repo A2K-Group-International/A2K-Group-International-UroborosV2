@@ -69,23 +69,22 @@ const paginate = async ({
       }
     }
 
-    // Apply eq filters dynamically for both the items and the count
     if (filters.eq) {
-      // Assuming filters.eq is now an object like { column: 'entity_id', value: dynamicId }
-      const { column, value } = filters.eq;
-      supabaseQuery = supabaseQuery.eq(column, value);
+      for (const [column, value] of Object.entries(filters.eq)) {
+        supabaseQuery = supabaseQuery.eq(column, value);
+      }
     }
 
-    // Fetch the total count of items, applying eq filters here as well
-    let countQuery = supabase.from(key).select('*', { count: 'exact', head: true });
-
-    // Apply eq filters to the count query
-    if (filters.eq) {
-      const { column, value } = filters.eq;
-      countQuery = countQuery.eq(column, value);
+    if (filters.in) {
+      for (const [column, value] of Object.entries(filters.in)) {
+        supabaseQuery = supabaseQuery.in(column, value);
+      }
     }
 
-    const { count, error: countError } = await countQuery;
+    // Fetch the total count of items
+    const { count, error: countError } = await supabase
+      .from(key)
+      .select("*", { count: "exact", head: true });
 
     if (countError) throw countError;
 

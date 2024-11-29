@@ -4,7 +4,7 @@ import PropTypes from "prop-types";
 import { useUser } from "@/context/useUser"; // Adjust the path as needed
 
 import { Title } from "@/components/Title";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,14 +13,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { cn } from "@/lib/utils";
+import { cn, getInitial } from "@/lib/utils";
 
 import { SIDEBAR_LINKS } from "@/constants/sidebarLinks";
 
 import { ChevronUp } from "@/assets/icons/icons";
+import { ROLES } from "@/constants/roles";
 
 const Sidebar = () => {
   const url = useLocation();
+  const { userData } = useUser();
+
   return (
     <div className="flex w-full lg:my-9 lg:w-2/12 lg:flex-col">
       <Title className="mb-12 ml-9 hidden max-w-[201px] lg:block">
@@ -28,17 +31,17 @@ const Sidebar = () => {
       </Title>
       <div className="flex flex-1 justify-between lg:flex-col">
         <ul className="flex w-full justify-evenly gap-2 lg:ml-4 lg:mr-8 lg:flex-col lg:items-start">
-          {SIDEBAR_LINKS.map((links, index) => (
-            <SidebarLink
-              key={index}
-              label={links.label}
-              link={links.link}
-              icon={links.icon}
-              selectedIcon={links.selectedIcon}
-              isActive={url.pathname === links.link}
-            />
-          ))}
-          <SidebarProfile />
+          {userData &&
+            SIDEBAR_LINKS[userData?.role].map((links, index) => (
+              <SidebarLink
+                key={index}
+                label={links.label}
+                link={links.link}
+                icon={links.icon}
+                selectedIcon={links.selectedIcon}
+                isActive={url.pathname === links.link}
+              />
+            ))}
         </ul>
       </div>
     </div>
@@ -48,59 +51,96 @@ const Sidebar = () => {
 export default Sidebar;
 
 const SidebarProfile = () => {
-  const { logout } = useUser(); // Get userData and logout
+  const { logout, userData } = useUser(); // Destructure logout and userData
   const navigate = useNavigate(); // Initialize navigate
-  const loc = useLocation(); // Get current location
 
   const handleLogout = async () => {
     try {
-      await logout(); // Call logout function from UserContext
-      navigate("/", { replace: true, state: { from: loc.pathname || "/" } }); // Redirect to home
+      await logout(); // Call logout from UserContext
+      navigate("/", { replace: true }); // Redirect to the home page
     } catch (error) {
       console.error("Logout failed:", error.message);
     }
   };
 
-  // Generate initials using getInitial utility for both first and last name
-  // const initials = `${getInitial(userData?.first_name ?? "U")}${getInitial(userData?.last_name ?? "")}`;
+  const onSwitchRole = (role) => {
+    if (!userData) return;
 
-  // Generate the full name or fallback to "Guest"
-  // const fullName =
-  //   `${userData?.first_name ?? ""} ${userData?.last_name ?? ""}`.trim() ||
-  //   "Guest";
+    // const tempRole = sessionStorage.getItem("temp-role");
+
+    if (role === ROLES[0]) {
+      sessionStorage.removeItem("temp-role");
+      window.dispatchEvent(new Event("storage"));
+      window.location.reload();
+      return;
+    }
+
+    sessionStorage.setItem("temp-role", role);
+    window.dispatchEvent(new Event("storage"));
+    window.location.reload();
+  };
+
+  const roles = [
+    {
+      label: "Switch to Parishioner",
+      value: "parishioner",
+    },
+    {
+      label: "Switch to Volunteer",
+      value: "volunteer",
+    },
+    {
+      label: "Switch to Admin",
+      value: "admin",
+    },
+  ];
+
+  if (!userData) {
+    // Fallback while userData is loading
+    return (
+      <div className="ml-9 hidden h-10 max-w-56 items-center justify-between rounded-[20px] bg-white p-1 lg:flex">
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback>?</AvatarFallback>
+          </Avatar>
+          <p className="text-[16px] font-medium capitalize">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Generate initials and full name
+  const initials = `${getInitial(userData?.first_name ?? "U")}${getInitial(
+    userData?.last_name ?? ""
+  )}`;
+  const fullName =
+    `${userData?.first_name ?? ""} ${userData?.last_name ?? ""}`.trim() ||
+    "Guest";
 
   return (
     <div className=" flex flex-col justify-center items-center">
     <div className="flex gap-2 lg:mt-14 h-10 max-w-56 items-center justify-between rounded-[20px] bg-white p-1 lg:ml-6">
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="lg:hidden  hover:cursor-pointer">
-            <Avatar className="h-7 w-7">
-              <AvatarImage src="https://github.com/shadcn.png" />
-              <AvatarFallback>CN</AvatarFallback>
-            </Avatar>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem>Switch to Parishioner</DropdownMenuItem>
-            <DropdownMenuItem>Switch to Volunteer</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-            <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Avatar className="hidden lg:block h-7 w-7">
-              <AvatarImage src="https://github.com/shadcn.png" />
-              <AvatarFallback>CN</AvatarFallback>
-            </Avatar>
-        <p className="hidden text-[16px] font-medium lg:block">A2K Group</p>
+        <Avatar className="h-8 w-8">
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+        <p className="text-[16px] font-medium capitalize">{fullName}</p>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger className="hidden h-7 w-11 items-center justify-center rounded-[18.5px] bg-accent px-2 text-white hover:cursor-pointer lg:flex">
           <ChevronUp className="h-5 w-5 text-white" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem>Switch to Parishioner</DropdownMenuItem>
-          <DropdownMenuItem>Switch to Volunteer</DropdownMenuItem>
+          {roles
+            .filter((role) => role.value !== userData?.role)
+            .map((role) => (
+              <DropdownMenuItem
+                key={role}
+                onClick={() => onSwitchRole(role.value)}
+              >
+                {role.label}
+              </DropdownMenuItem>
+            ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
         </DropdownMenuContent>
